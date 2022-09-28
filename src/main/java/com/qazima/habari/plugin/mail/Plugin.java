@@ -10,6 +10,7 @@ import lombok.Setter;
 import org.apache.http.HttpStatus;
 
 import javax.mail.*;
+import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
@@ -60,19 +61,25 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
     @JsonProperty("port")
     private int port;
     @Getter
-    @Setter
-    @JsonProperty("replyTo")
-    private Address replyTo;
+    @JsonProperty("replyTos")
+    private final List<Address> replyTos = new ArrayList<>();
     @Getter
     @Setter
-    @JsonProperty("sslProtocols")
-    private SslProtocols sslProtocols;
+    @JsonProperty("sslEnabled")
+    private boolean sslEnabled;
+    @Getter
+    @Setter
+    @JsonProperty("sslProtocol")
+    private String sslProtocol;
     @Getter
     @Setter
     @JsonProperty("subject")
     private String subject;
     @Getter
     @Setter
+    @JsonProperty("tlsEnabled")
+    private boolean tlsEnabled;
+    @Getter
     @JsonProperty("tos")
     private final List<Address> tos = new ArrayList<>();
 
@@ -94,11 +101,11 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
     }
 
     public static Map<String, String> splitQuery(String parameters) throws UnsupportedEncodingException {
-        Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+        Map<String, String> query_pairs = new LinkedHashMap<>();
         String[] pairs = parameters.split("&");
         for (String pair : pairs) {
             int idx = pair.indexOf("=");
-            query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+            query_pairs.put(URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8), URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8));
         }
         return query_pairs;
     }
@@ -108,7 +115,7 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
         String body = getBody();
         List<Address> ccs = new ArrayList<>();
         Address from = new Address();
-        Address replyTo = new Address();
+        List<Address> replyTos = new ArrayList<>();
         String subject = getSubject();
         List<Address> tos = new ArrayList<>();
 
@@ -127,8 +134,12 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
         }
         from.setAddress(getFrom().getAddress());
         from.setName(getFrom().getName());
-        replyTo.setAddress(getReplyTo().getAddress());
-        replyTo.setName(getReplyTo().getName());
+        for (Address replyTo : getReplyTos()){
+            address = new Address();
+            address.setAddress(replyTo.getAddress());
+            address.setName(replyTo.getName());
+            replyTos.add(address);
+        }
         for (Address to : getTos()){
             address = new Address();
             address.setAddress(to.getAddress());
@@ -160,8 +171,10 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
                     }
                     from.setAddress(from.getAddress().replace("{" + parameterKey + "}", parameterValue));
                     from.setName(from.getName().replace("{" + parameterKey + "}", parameterValue));
-                    replyTo.setAddress(replyTo.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                    replyTo.setName(replyTo.getName().replace("{" + parameterKey + "}", parameterValue));
+                    for(Address replyTo : replyTos) {
+                        replyTo.setAddress(replyTo.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                        replyTo.setName(replyTo.getName().replace("{" + parameterKey + "}", parameterValue));
+                    }
                     subject = subject.replace("{" + parameterKey + "}", parameterValue);
                     for(Address to : tos) {
                         to.setAddress(to.getAddress().replace("{" + parameterKey + "}", parameterValue));
@@ -172,8 +185,9 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
 
             Properties properties = new Properties();
             properties.put("mail.smtp.auth", !isNullOrWhiteSpace(getLogin()) && !isNullOrWhiteSpace(getPassword()));
-            properties.put("mail.smtp.starttls.enable", getSslProtocols().isTls() || getSslProtocols().isTls11() || getSslProtocols().isTls12() || getSslProtocols().isTls13());
-            properties.put("mail.smtp.ssl.enable", getSslProtocols().isSsl2() || getSslProtocols().isSsl3());
+            properties.put("mail.smtp.ssl.enable", isSslEnabled());
+            properties.put("mail.smtp.ssl.protocols", getSslProtocol());
+            properties.put("mail.smtp.starttls.enable", isTlsEnabled());
             properties.put("mail.smtp.host", getHost());
             properties.put("mail.smtp.port", getPort());
             properties.put("mail.smtp.ssl.trust", getHost());
@@ -187,6 +201,12 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
 
             Message message = new MimeMessage(session);
             message.setFrom(from.toInternetAddress());
+            List<InternetAddress> list = new ArrayList<>();
+            for (Address replyTo : replyTos) {
+                InternetAddress toInternetAddress = replyTo.toInternetAddress();
+                list.add(toInternetAddress);
+            }
+            message.setReplyTo(list.toArray(new javax.mail.Address[0]));
             message.setSubject(subject);
             MimeBodyPart mimeBodyPart = new MimeBodyPart();
             if(isHtmlBody()) {
