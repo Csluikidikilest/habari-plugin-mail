@@ -7,31 +7,26 @@ This is a plugin which permit Habari to send mail.
 {
   "asynchronous": false,
   "bccs": [],
-  "body": "Test Message",
+  "body": "{body}",
   "ccs": [],
   "connectionType": "com.qazima.habari.plugin.mail.Plugin",
   "from": {
-    "address": "contact@habari.com",
+    "address": "cbonet@klanik.com",
     "name": "Contact HABARI"
   },
-  "host": "smtp.gmail.com",
+  "host": "smtp host",
   "htmlBody": false,
-  "login": "",
-  "password": "",
+  "login": "login",
+  "password": "password",
   "port": 587,
-  "replyTo": {
+  "replyTos": [{
     "address": "contact@habari.com",
     "name": "Contact HABARI"
-  },
-  "sslProtocols": {
-    "ssl2": true,
-    "ssl3": true,
-    "tls": true,
-    "tls11": true,
-    "tls12": true,
-    "tls13": true
-  },
-  "subject": "mail subject : {subject}",
+  }],
+  "sslEnabled": false,
+  "sslProtocol": "TLSv1.2",
+  "subject": "Subject: {subject}",
+  "tlsEnabled": true,
   "tos": [
     {
       "address": "{toMail}",
