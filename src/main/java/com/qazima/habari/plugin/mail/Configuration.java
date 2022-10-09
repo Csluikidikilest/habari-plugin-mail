@@ -1,12 +1,14 @@
 package com.qazima.habari.plugin.mail;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@JsonPropertyOrder(alphabetic = true)
 public class Configuration extends com.qazima.habari.plugin.core.Configuration {
     @Getter
     @Setter
