@@ -2,8 +2,6 @@ package com.qazima.habari.plugin.mail;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.qazima.habari.plugin.core.Configuration;
 import com.qazima.habari.plugin.core.Content;
 import com.sun.net.httpserver.HttpExchange;
 import lombok.Getter;
@@ -16,10 +14,11 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 @JsonTypeName("com.qazima.habari.plugin.mail.Plugin")
 public class Plugin extends com.qazima.habari.plugin.core.Plugin {
@@ -27,35 +26,6 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
     @Setter
     @JsonProperty("configuration")
     private com.qazima.habari.plugin.mail.Configuration configuration;
-
-    private boolean isNullOrEmpty(String string) {
-        return string == null || string.isEmpty();
-    }
-
-    private boolean isNullOrWhiteSpace(String string) {
-        return isNullOrEmpty(string) || string.trim().isEmpty();
-    }
-
-    private Map<String, String> splitRequestBody(String parameters) throws IOException {
-        Map<String, String> result = Collections.emptyMap();
-        if (!isNullOrWhiteSpace(parameters)) {
-            ObjectMapper mapper = new ObjectMapper();
-            result = mapper.readValue(parameters, Map.class);
-        }
-        return result;
-    }
-
-    private Map<String, String> splitQuery(String parameters) throws UnsupportedEncodingException {
-        Map<String, String> query_pairs = new LinkedHashMap<>();
-        if(!isNullOrEmpty(parameters)) {
-            String[] pairs = parameters.split("&");
-            for (String pair : pairs) {
-                int idx = pair.indexOf("=");
-                query_pairs.put(URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8), URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8));
-            }
-        }
-        return query_pairs;
-    }
 
     public int process(HttpExchange httpExchange, Content content) {
         List<Address> bccs = new ArrayList<>();
@@ -96,7 +66,7 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
 
         try {
             String queryString;
-            Map<String, String> parameters;
+            Map<String, List<String>> parameters;
             if("GET".equalsIgnoreCase(httpExchange.getRequestMethod())) {
                 queryString = httpExchange.getRequestURI().getQuery();
                 parameters = splitQuery(queryString);
@@ -105,27 +75,29 @@ public class Plugin extends com.qazima.habari.plugin.core.Plugin {
                 parameters = splitRequestBody(queryString);
             }
             for (String parameterKey : parameters.keySet()) {
-                String parameterValue = parameters.get(parameterKey);
-                if(!isNullOrWhiteSpace(parameterValue)) {
-                    for(Address bcc : bccs) {
-                        bcc.setAddress(bcc.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                        bcc.setName(bcc.getName().replace("{" + parameterKey + "}", parameterValue));
-                    }
-                    body = body.replace("{" + parameterKey + "}", parameterValue);
-                    for(Address cc : ccs) {
-                        cc.setAddress(cc.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                        cc.setName(cc.getName().replace("{" + parameterKey + "}", parameterValue));
-                    }
-                    from.setAddress(from.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                    from.setName(from.getName().replace("{" + parameterKey + "}", parameterValue));
-                    for(Address replyTo : replyTos) {
-                        replyTo.setAddress(replyTo.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                        replyTo.setName(replyTo.getName().replace("{" + parameterKey + "}", parameterValue));
-                    }
-                    subject = subject.replace("{" + parameterKey + "}", parameterValue);
-                    for(Address to : tos) {
-                        to.setAddress(to.getAddress().replace("{" + parameterKey + "}", parameterValue));
-                        to.setName(to.getName().replace("{" + parameterKey + "}", parameterValue));
+                List<String> parameterValues = parameters.get(parameterKey);
+                if(!parameterValues.isEmpty()) {
+                    for (String parameterValue : parameterValues) {
+                        for(Address bcc : bccs) {
+                            bcc.setAddress(bcc.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                            bcc.setName(bcc.getName().replace("{" + parameterKey + "}", parameterValue));
+                        }
+                        body = body.replace("{" + parameterKey + "}", parameterValue);
+                        for(Address cc : ccs) {
+                            cc.setAddress(cc.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                            cc.setName(cc.getName().replace("{" + parameterKey + "}", parameterValue));
+                        }
+                        from.setAddress(from.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                        from.setName(from.getName().replace("{" + parameterKey + "}", parameterValue));
+                        for(Address replyTo : replyTos) {
+                            replyTo.setAddress(replyTo.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                            replyTo.setName(replyTo.getName().replace("{" + parameterKey + "}", parameterValue));
+                        }
+                        subject = subject.replace("{" + parameterKey + "}", parameterValue);
+                        for(Address to : tos) {
+                            to.setAddress(to.getAddress().replace("{" + parameterKey + "}", parameterValue));
+                            to.setName(to.getName().replace("{" + parameterKey + "}", parameterValue));
+                        }
                     }
                 }
             }
